@@ -2,10 +2,12 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "nixpacks",
-    "rootDirectory": "backend"
+    "env": {
+      "NIXPACKS_LANGUAGE_OVERRIDE": "python"
+    }
   },
   "deploy": {
-    "startCommand": "python railway_start.py",
+    "startCommand": "python backend/railway_start.py",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300
   }
