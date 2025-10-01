@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoldingFlow AI - 模压翘曲预测与智能推荐系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+        
+        .control-panel {
+            width: 400px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .visualization {
+            flex: 1;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        h1 { color: #2c3e50; margin-bottom: 20px; }
+        h3 { color: #34495e; margin: 15px 0 10px; }
+        
+        .param-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
+        }
+        
+        .value-display {
+            text-align: right;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        button:hover { background: #2980b9; }
+        button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        
+        .result-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 5px;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 3px;
+        }
+        
+        .warpage-high { color: #e74c3c; font-weight: bold; }
+        .warpage-medium { color: #f39c12; }
+        .warpage-low { color: #27ae60; }
+        
+        .void-high { color: #e74c3c; font-weight: bold; }
+        .void-medium { color: #f39c12; }
+        .void-low { color: #27ae60; }
+        
+        .canvas-container {
+            flex: 1; /* Let it fill available vertical space */
+            position: relative;
+            background: #1a1a1a;
+            border-radius: 5px;
+            min-height: 0; /* Allow shrinking for flex items */
+        }
+
+        #warpage-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="control-panel">
+            <h1>MoldingFlow AI</h1>
+            <h3>模压工艺参数</h3>
+            
+            <div class="param-group">
+                <label for="temperature">温度 (°C):</label>
+                <input type="range" id="temperature" min="80" max="180" value="150" step="1">
+                <div class="value-display" id="temp-value">150°C</div>
+            </div>
+            
+            <div class="param-group">
+                <label for="pressure">压力 (MPa):</label>
+                <input type="range" id="pressure" min="1" max="10" value="5" step="0.1">
+                <div class="value-display" id="pressure-value">5.0 MPa</div>
+            </div>
+            
+            <div class="param-group">
+                <label for="time">时间 (s):</label>
+                <input type="range" id="time" min="10" max="120" value="60" step="1">
+                <div class="value-display" id="time-value">60s</div>
+            </div>
+            
+            <h3>材料参数</h3>
+            <div class="param-group">
+                <label for="viscosity">粘度 (cP):</label>
+                <input type="range" id="viscosity" min="100" max="1000" value="500" step="10">
+                <div class="value-display" id="viscosity-value">500 cP</div>
+            </div>
+            
+            <div class="param-group">
+                <label for="cte">CTE (ppm/°C):</label>
+                <input type="range" id="cte" min="10" max="20" value="15" step="0.1">
+                <div class="value-display" id="cte-value">15 ppm/°C</div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button id="predict-btn" onclick="predict()">预测翘曲与空洞风险</button>
+                <button id="optimize-btn" onclick="optimize()">推荐最优工艺</button>
+            </div>
+            
+            <div class="result-panel" id="result-panel" style="display: none;">
+                <h3>预测结果</h3>
+                <div class="metric">
+                    <span>翘曲量:</span>
+                    <span id="warpage-value" class="warpage-low">-</span>
+                </div>
+                <div class="metric">
+                    <span>空洞风险:</span>
+                    <span id="void-risk-value" class="void-low">-</span>
+                </div>
+                <div id="optimization-result" style="display: none;">
+                    <h4>推荐参数</h4>
+                    <div id="recommended-params"></div>
+                    <button id="apply-recommendation-btn" style="display: none; margin-top: 10px;" onclick="applyRecommendation()">应用推荐参数</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="visualization">
+            <h3>3D翘曲可视化</h3>
+            <div class="canvas-container">
+                <div class="loading" id="loading">等待预测结果...</div>
+                <canvas id="warpage-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    </div>
+
+    <script>
+    // --- All code wrapped in DOMContentLoaded to ensure DOM is ready ---
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // --- Element Initialization ---
+        const predictBtn = document.getElementById('predict-btn');
+        const optimizeBtn = document.getElementById('optimize-btn');
+        const canvas = document.getElementById('warpage-canvas');
+        const loadingIndicator = document.getElementById('loading');
+
+        // --- Event Listener Setup ---
+
+        // Setup for sliders
+        document.querySelectorAll('input[type="range"]').forEach(slider => {
+            const display = document.getElementById(slider.id + '-value');
+            if (display) {
+                const unit = slider.id.includes('temp') ? '°C' : slider.id.includes('pressure') ? ' MPa' : slider.id.includes('time') ? 's' : slider.id.includes('viscosity') ? ' cP' : ' ppm/°C';
+                display.textContent = slider.value + unit; // Set initial value
+                slider.addEventListener('input', () => {
+                    display.textContent = slider.value + unit;
+                });
+            }
+        });
+
+        // Setup for buttons
+        if (predictBtn) {
+            predictBtn.addEventListener('click', handlePredict);
+        }
+        if (optimizeBtn) {
+            optimizeBtn.addEventListener('click', handleOptimize);
+        }
+
+        // --- Initial Canvas State ---
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.fillStyle = '#2c3e50';
+                ctx.font = '16px Arial';
+                ctx.fillText('等待预测数据...', 20, 30);
+            }
+        }
+    });
+
+    // --- Async Handlers & Logic ---
+
+    async function handlePredict() {
+        const btn = document.getElementById('predict-btn');
+        const loading = document.getElementById('loading');
+        if (btn) btn.disabled = true;
+        if (loading) {
+            loading.style.display = 'block';
+            loading.textContent = '预测中...';
+        }
+        
+        const params = {
+            temperature: parseFloat(document.getElementById('temperature').value),
+            pressure: parseFloat(document.getElementById('pressure').value),
+            time: parseFloat(document.getElementById('time').value),
+            viscosity: parseFloat(document.getElementById('viscosity').value),
+            cte: parseFloat(document.getElementById('cte').value)
+        };
+        
+        try {
+            const response = await fetch('http://localhost:8000/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const result = await response.json();
+            if (result.ok) {
+                displayResults(result.result);
+                visualizeWarpage(result.result.warpage_field);
+            } else {
+                throw new Error(result.error || 'API returned an error');
+            }
+        } catch (error) {
+            console.error('预测失败:', error);
+            if (loading) loading.textContent = `预测失败: ${error.message}`;
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+    
+    async function handleOptimize() {
+        const btn = document.getElementById('optimize-btn');
+        const loading = document.getElementById('loading');
+        if(btn) btn.disabled = true;
+        if(loading) {
+            loading.style.display = 'block';
+            loading.textContent = '优化中...';
+        }
+        
+        const payload = {
+            search_space: { temperature: [80, 180], pressure: [1, 10], time: [10, 120] },
+            steps: 50
+        };
+        
+        try {
+            const response = await fetch('http://localhost:8000/recommend', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const result = await response.json();
+            if (result.ok) {
+                displayOptimizationResults(result);
+            } else {
+                throw new Error(result.error || 'API returned an error');
+            }
+        } catch (error) {
+            console.error('优化失败:', error);
+            if (loading) loading.textContent = `优化失败: ${error.message}`;
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+    
+    // --- UI Update Functions ---
+
+    function displayResults(result) {
+        const panel = document.getElementById('result-panel');
+        const warpageElem = document.getElementById('warpage-value');
+        const voidRiskElem = document.getElementById('void-risk-value');
+        
+        if (panel) panel.style.display = 'block';
+        if (warpageElem) {
+            warpageElem.textContent = result.warpage.toFixed(4);
+            warpageElem.className = result.warpage > 0.5 ? 'warpage-high' : result.warpage > 0.2 ? 'warpage-medium' : 'warpage-low';
+        }
+        if (voidRiskElem) {
+            voidRiskElem.textContent = (result.void_risk * 100).toFixed(1) + '%';
+            voidRiskElem.className = result.void_risk > 0.7 ? 'void-high' : result.void_risk > 0.3 ? 'void-medium' : 'void-low';
+        }
+    }
+    
+    function displayOptimizationResults(result) {
+        const optResult = document.getElementById('optimization-result');
+        const paramsElem = document.getElementById('recommended-params');
+        const applyBtn = document.getElementById('apply-recommendation-btn');
+        
+        if (optResult) optResult.style.display = 'block';
+        if (paramsElem) {
+            const temp = result.e_recipe.temperature_C;
+            const pressure = result.e_recipe.pressure_MPa;
+            const time = result.e_recipe.time_s;
+
+            // Store values in data attributes for the apply function
+            paramsElem.dataset.temp = temp;
+            paramsElem.dataset.pressure = pressure;
+            paramsElem.dataset.time = time;
+
+            paramsElem.innerHTML = `
+                <div>温度: ${temp}°C</div>
+                <div>压力: ${pressure} MPa</div>
+                <div>时间: ${time} s</div>
+                <div style="margin-top: 5px; font-weight: bold;">预期翘曲: ${result.best_parameters.warpage.toFixed(4)}</div>
+                <div style="font-weight: bold;">预期风险: ${(result.best_parameters.void_risk * 100).toFixed(1)}%</div>
+            `;
+        }
+        if (applyBtn) {
+            applyBtn.style.display = 'inline-block'; // Show the button
+        }
+    }
+
+    function applyRecommendation() {
+        const paramsElem = document.getElementById('recommended-params');
+        if (!paramsElem) return;
+
+        const temp = parseFloat(paramsElem.dataset.temp);
+        const pressure = parseFloat(paramsElem.dataset.pressure);
+        const time = parseFloat(paramsElem.dataset.time);
+
+        // Update sliders
+        updateSlider('temperature', temp);
+        updateSlider('pressure', pressure);
+        updateSlider('time', time);
+    }
+
+    function updateSlider(id, value) {
+        const slider = document.getElementById(id);
+        if (slider) {
+            slider.value = value;
+            // Manually trigger the input event to update the display text
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+    
+    function visualizeWarpage(fieldData) {
+        const canvas = document.getElementById('warpage-canvas');
+        const container = canvas ? canvas.parentElement : null;
+        if (!canvas || !container) {
+            console.error("visualizeWarpage: Cannot find canvas or its container.");
+            return;
+        }
+
+        // Defer drawing to the next animation frame to ensure layout is complete
+        requestAnimationFrame(() => {
+            try {
+                const rect = container.getBoundingClientRect();
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+                
+                const loading = document.getElementById('loading');
+                if(loading) loading.style.display = 'none';
+                
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear previous drawings
+
+                if (!fieldData || !Array.isArray(fieldData) || fieldData.length === 0) {
+                    ctx.fillStyle = '#666';
+                    ctx.font = '16px Arial';
+                    ctx.fillText('无场数据可用', 20, 30);
+                    return;
+                }
+                
+                const size = fieldData.length;
+                // Determine the drawing area size to maintain aspect ratio
+                const drawingDim = Math.min(canvas.width, canvas.height);
+                const cellSize = drawingDim / size;
+
+                // Calculate offsets to center the drawing
+                const offsetX = (canvas.width - drawingDim) / 2;
+                const offsetY = (canvas.height - drawingDim) / 2;
+                
+                for (let i = 0; i < size; i++) {
+                    for (let j = 0; j < size; j++) {
+                        const value = fieldData[i]?.[j] || 0;
+                        const intensity = Math.min(255, Math.floor(value * 255));
+                        ctx.fillStyle = `rgb(${intensity}, ${100}, ${255 - intensity})`;
+                        ctx.fillRect(offsetX + (j * cellSize), offsetY + (i * cellSize), cellSize, cellSize);
+                    }
+                }
+                
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                // Position legend relative to the centered drawing area
+                ctx.fillText('翘曲热力图 (蓝色=低, 红色=高)', offsetX + 10, offsetY + drawingDim - 10);
+            } catch (e) {
+                console.error("Error during canvas visualization:", e);
+            }
+        });
+    }
+    </script>
+</body>
+</html>
