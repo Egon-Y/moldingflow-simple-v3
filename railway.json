@@ -3,7 +3,8 @@
   "build": {
     "builder": "nixpacks",
     "env": {
-      "NIXPACKS_LANGUAGE_OVERRIDE": "python"
+      "NIXPACKS_LANGUAGE_OVERRIDE": "python",
+      "NIXPACKS_PYTHON_VERSION": "3.11"
     }
   },
   "deploy": {
